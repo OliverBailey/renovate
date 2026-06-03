@@ -332,7 +332,7 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
         With your current configuration, Renovate will create 3 Pull Requests (1 major, 1 pin, 1 replacement):
 
         | Manager | security | major | pin | replacement |
-        | --- | --- | ---| --- | --- |
+        | ------- | -------- | ----- | ----- | ----------- |
         | some-manager | 0 | 1 | 1 | 0 |
         | dockerfile | 0 | 0 | 0 | 1 |
         🚸 PR creation will be limited to maximum 2 per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.
@@ -424,12 +424,12 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
         "
         ### What to Expect
 
-        With your current configuration, Renovate will create 1 Pull Request to the default branch (1 lockfileUpdate) and 1 Pull Request to the \`base\` branch (1 pin):
+        With your current configuration, Renovate will create 1 Pull Request to the default branch () and 1 Pull Request to the \`base\` branch (1 pin):
 
-        | Branch | Manager | security | lockfileUpdate | pin |
+        | Branch | Manager | security | pin | lockfileUpdate |
         | --- | --- | --- | --- | --- |
-        | $default | some-manager | 0 | 1 | 0 |
-        | base | some-manager | 0 | 0 | 1 |
+        | $default | some-manager | 0 | 0 | 1 |
+        | base | some-manager | 0 | 1 | 0 |
         "
       `)
     })
@@ -485,12 +485,12 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
         "
         ### What to Expect
 
-        With your current configuration, Renovate will create 2 Pull Requests (1 lockfileUpdate, 1 pin):
+        With your current configuration, Renovate will create 2 Pull Requests (1 pin):
 
-        | Manager | security | lockfileUpdate | pin |
-        | ------- | -------- | -------------- | ----- |
-        | some-manager | 0 | 0 | 1 |
-        | another-manager | 0 | 1 | 0 |
+        | Manager | security | pin | lockfileUpdate |
+        | ------- | -------- | ----- | -------------- |
+        | some-manager | 0 | 1 | 0 |
+        | another-manager | 0 | 0 | 1 |
         🚸 PR creation will be limited to maximum 1 per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.
         "
       `);

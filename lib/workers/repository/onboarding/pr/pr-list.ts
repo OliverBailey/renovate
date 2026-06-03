@@ -1,4 +1,4 @@
-import type { RenovateConfig } from '../../../../config/types.ts';
+import { UpdateTypesOptions, type RenovateConfig } from '../../../../config/types.ts';
 import { logger } from '../../../../logger/index.ts';
 import { emojify } from '../../../../util/emoji.ts';
 import { regEx } from '../../../../util/regex.ts';
@@ -85,19 +85,7 @@ export function getExpectedPrList(
   return prDesc;
 }
 
-const UPDATE_TYPE_DISPLAY_ORDER = [
-  'major',
-  'minor',
-  'patch',
-  'lockFileMaintenance',
-  'lockfileUpdate',
-  'pin',
-  'digest',
-  'pinDigest',
-  'rollback',
-  'bump',
-  'replacement',
-];
+const UPDATE_TYPE_DISPLAY_ORDER = [...UpdateTypesOptions];
 
 function getBranchPrimaryType(branch: BranchConfig): string {
   if (branch.isVulnerabilityAlert) return 'security';
