@@ -330,6 +330,7 @@ export function getExpectedPrListSummary(
     commitHourlyLimit < 5 &&
     commitHourlyLimit < branches.length
   ) {
+    // TODO: additional newline
     prDesc += emojify(
       `\n:children_crossing: Branch creation and rebasing will be limited to maximum ${commitHourlyLimit} per hour, so it doesn't swamp any CI resources or overwhelm the project. See docs for \`commitHourlyLimit\` for details.\n`,
     );
@@ -338,6 +339,7 @@ export function getExpectedPrListSummary(
     prHourlyLimit < 5 &&
     prHourlyLimit < branches.length
   ) {
+    // TODO: additional newline
     prDesc += emojify(
       `:children_crossing: PR creation will be limited to maximum ${prHourlyLimit} per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.\n`,
     );

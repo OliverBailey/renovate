@@ -263,6 +263,85 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
       `);
     });
 
+    it('handles different updateTypes', () => {
+      const branches: BranchConfig[] = [
+        {
+          prTitle: 'Pin dependencies',
+          baseBranch: '',
+          branchName: 'renovate/pin-dependencies',
+          manager: 'some-manager',
+          upgrades: [
+            {
+              manager: 'some-manager',
+              updateType: 'pin',
+              sourceUrl: 'https://a',
+              depName: 'a',
+              depType: 'devDependencies',
+              newValue: '1.1.0',
+            },
+            {
+              manager: 'some-manager',
+              updateType: 'pin',
+              depName: 'b',
+              newValue: '1.5.3',
+            },
+          ] as never,
+        },
+        {
+          prTitle: 'Update a to v2',
+          branchName: 'renovate/a-2.x',
+          baseBranch: '',
+          manager: 'some-manager',
+          upgrades: [
+            {
+              updateType: 'major',
+              manager: 'some-manager',
+              sourceUrl: 'https://a',
+              depName: 'a',
+              currentValue: '^1.0.0',
+              depType: 'devDependencies',
+              newValue: '2.0.1',
+              isLockfileUpdate: true,
+              branchName: 'some-branch',
+            },
+          ],
+        },
+        {
+          prTitle: 'Replace node with nodejs',
+          branchName: 'renovate/node-replacement',
+          baseBranch: '',
+          manager: 'dockerfile',
+          upgrades: [
+            {
+              manager: 'dockerfile',
+              updateType: 'replacement',
+              depName: 'a',
+              currentValue: '^1.0.0',
+              branchName: 'renovate/node-replacement',
+            },
+          ],
+        },
+      ];
+
+      const res = getExpectedPrListSummary(config, branches);
+
+      expect(res).toMatchInlineSnapshot(`
+        "
+        ### What to Expect
+
+        With your current configuration, Renovate will create 3 Pull Requests (1 major, 1 pin, 1 replacement):
+
+        | Manager | security | major | pin | replacement |
+        | --- | --- | ---| --- | --- |
+        | some-manager | 0 | 1 | 1 | 0 |
+        | dockerfile | 0 | 0 | 0 | 1 |
+        🚸 PR creation will be limited to maximum 2 per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.
+        "
+      `)
+    })
+
+    // TODO not security
+
     it('has special lock file maintenance description', () => {
       const branches: BranchConfig[] = [
         {
@@ -295,7 +374,6 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
       `);
     });
 
-    // TODO base branch
     it('includes the base branch if there are multiple being tracked', () => {
       const branches: BranchConfig[] = [
         {
