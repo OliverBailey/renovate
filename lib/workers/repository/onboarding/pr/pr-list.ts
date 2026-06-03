@@ -198,20 +198,20 @@ export function getExpectedPrListSummary(
     prDesc += `With your current configuration, Renovate will create ${prCount} Pull Request${prCount > 1 ? 's' : ''} (${typeSummary}):\n\n`;
   }
 
-  // Determine which non-security update types appear in the data
-  const nonSecurityTypes = new Set<string>();
+  // Determine which update types appear in the data (drives table columns)
+  const hasSecurityUpdates = branches.some((b) => b.isVulnerabilityAlert);
+  const presentTypes = new Set<string>();
   for (const branch of branches) {
-    if (!branch.isVulnerabilityAlert) {
-      for (const type of getBranchUpgradeTypes(branch)) {
-        nonSecurityTypes.add(type);
-      }
+    for (const type of getBranchUpgradeTypes(branch)) {
+      presentTypes.add(type);
     }
   }
-  const typeColumns: string[] = UPDATE_TYPE_DISPLAY_ORDER.filter((t) =>
-    nonSecurityTypes.has(t),
-  );
-  // Add any types not in the standard display order
-  for (const t of nonSecurityTypes) {
+  const typeColumns: string[] = [
+    ...(hasSecurityUpdates ? ['security'] : []),
+    ...UPDATE_TYPE_DISPLAY_ORDER.filter((t) => presentTypes.has(t)),
+  ];
+  // Append any types not in the standard display order
+  for (const t of presentTypes) {
     if (!typeColumns.includes(t)) {
       typeColumns.push(t);
     }
@@ -227,8 +227,8 @@ export function getExpectedPrListSummary(
       : '';
 
   if (hasMultipleBaseBranches) {
-    prDesc += `| Branch | Manager | security${typeSuffix(typeColumns)} |\n`;
-    prDesc += `| --- | --- | ---${typeColumns.map(() => ' | ---').join('')} |\n`;
+    prDesc += `| Branch | Manager${typeSuffix(typeColumns)} |\n`;
+    prDesc += `| --- | ---${typeColumns.map(() => ' | ---').join('')} |\n`;
 
     // stats: baseBranch -> manager -> type -> count (deduplicated by branchName+manager+type)
     const stats = new Map<string, Map<string, Map<string, number>>>();
@@ -259,16 +259,15 @@ export function getExpectedPrListSummary(
     for (const base of sortedBases) {
       const branchLabel = base || '$default';
       for (const [manager, typeCounts] of stats.get(base)!) {
-        const securityCount = typeCounts.get('security') ?? 0;
         const rowSuffix = typeSuffix(
           typeColumns.map((t) => String(typeCounts.get(t) ?? 0)),
         );
-        prDesc += `| ${branchLabel} | ${manager} | ${securityCount}${rowSuffix} |\n`;
+        prDesc += `| ${branchLabel} | ${manager}${rowSuffix} |\n`;
       }
     }
   } else {
-    prDesc += `| Manager | security${typeSuffix(typeColumns)} |\n`;
-    prDesc += `| ------- | --------${typeSeparatorSuffix(typeColumns)} |\n`;
+    prDesc += `| Manager${typeSuffix(typeColumns)} |\n`;
+    prDesc += `| -------${typeSeparatorSuffix(typeColumns)} |\n`;
 
     // stats: manager -> type -> count (deduplicated by branchName+manager+type)
     const stats = new Map<string, Map<string, number>>();
@@ -287,11 +286,10 @@ export function getExpectedPrListSummary(
     }
 
     for (const [manager, typeCounts] of stats) {
-      const securityCount = typeCounts.get('security') ?? 0;
       const rowSuffix = typeSuffix(
         typeColumns.map((t) => String(typeCounts.get(t) ?? 0)),
       );
-      prDesc += `| ${manager} | ${securityCount}${rowSuffix} |\n`;
+      prDesc += `| ${manager}${rowSuffix} |\n`;
     }
   }
 

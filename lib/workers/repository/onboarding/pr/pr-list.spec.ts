@@ -331,10 +331,10 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
 
         With your current configuration, Renovate will create 3 Pull Requests (1 major, 1 pin, 1 replacement):
 
-        | Manager | security | major | pin | replacement |
-        | ------- | -------- | ----- | ----- | ----------- |
-        | some-manager | 0 | 1 | 1 | 0 |
-        | dockerfile | 0 | 0 | 0 | 1 |
+        | Manager | major | pin | replacement |
+        | ------- | ----- | ----- | ----------- |
+        | some-manager | 1 | 1 | 0 |
+        | dockerfile | 0 | 0 | 1 |
         🚸 PR creation will be limited to maximum 2 per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.
         "
       `)
@@ -367,9 +367,9 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
 
         With your current configuration, Renovate will create 1 Pull Request (1 lockFileMaintenance):
 
-        | Manager | security | lockFileMaintenance |
-        | ------- | -------- | ------------------- |
-        | some-manager | 0 | 1 |
+        | Manager | lockFileMaintenance |
+        | ------- | ------------------- |
+        | some-manager | 1 |
         "
       `);
     });
@@ -426,10 +426,10 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
 
         With your current configuration, Renovate will create 1 Pull Request to the default branch () and 1 Pull Request to the \`base\` branch (1 pin):
 
-        | Branch | Manager | security | pin | lockfileUpdate |
-        | --- | --- | --- | --- | --- |
-        | $default | some-manager | 0 | 0 | 1 |
-        | base | some-manager | 0 | 1 | 0 |
+        | Branch | Manager | pin | lockfileUpdate |
+        | --- | --- | --- | --- |
+        | $default | some-manager | 0 | 1 |
+        | base | some-manager | 1 | 0 |
         "
       `)
     })
@@ -487,10 +487,10 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
 
         With your current configuration, Renovate will create 2 Pull Requests (1 pin):
 
-        | Manager | security | pin | lockfileUpdate |
-        | ------- | -------- | ----- | -------------- |
-        | some-manager | 0 | 1 | 0 |
-        | another-manager | 0 | 0 | 1 |
+        | Manager | pin | lockfileUpdate |
+        | ------- | ----- | -------------- |
+        | some-manager | 1 | 0 |
+        | another-manager | 0 | 1 |
         🚸 PR creation will be limited to maximum 1 per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.
         "
       `);
@@ -574,10 +574,10 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
 
         With your current configuration, Renovate will create 4 Pull Requests (1 major, 1 minor, 1 patch, 1 pin):
 
-        | Manager | security | major | minor | patch | pin |
-        | ------- | -------- | ----- | ----- | ----- | ----- |
-        | some-manager | 0 | 0 | 1 | 1 | 1 |
-        | another-manager | 0 | 1 | 0 | 0 | 0 |
+        | Manager | major | minor | patch | pin |
+        | ------- | ----- | ----- | ----- | ----- |
+        | some-manager | 0 | 1 | 1 | 1 |
+        | another-manager | 1 | 0 | 0 | 0 |
         🚸 PR creation will be limited to maximum 1 per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.
         "
       `);
