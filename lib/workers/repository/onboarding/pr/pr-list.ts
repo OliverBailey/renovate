@@ -87,13 +87,26 @@ export function getExpectedPrList(
 
 const UPDATE_TYPE_DISPLAY_ORDER = [...UpdateTypesOptions];
 
-function getBranchPrimaryType(branch: BranchConfig): string {
-  if (branch.isVulnerabilityAlert) return 'security';
-  for (const type of UPDATE_TYPE_DISPLAY_ORDER) {
-    if (branch.upgrades.some((u) => u.updateType === type)) return type;
+function getBranchUpgradeTypes(branch: BranchConfig): Set<string> {
+  if (branch.isVulnerabilityAlert) return new Set(['security']);
+  const types = new Set<string>();
+  for (const upgrade of branch.upgrades) {
+    if (upgrade.updateType) {
+      types.add(upgrade.updateType);
+    } else if (upgrade.isLockfileUpdate) {
+      types.add('lockfileUpdate');
+    }
   }
-  if (branch.upgrades.some((u) => u.isLockfileUpdate)) return 'lockfileUpdate';
-  return branch.upgrades[0]?.updateType ?? 'other';
+  return types;
+}
+
+function getBranchPrimaryType(branch: BranchConfig): string {
+  const types = getBranchUpgradeTypes(branch);
+  if (types.has('security')) return 'security';
+  for (const type of UPDATE_TYPE_DISPLAY_ORDER) {
+    if (types.has(type)) return type;
+  }
+  return [...types][0] ?? 'other';
 }
 
 function formatTypeSummary(typeCount: Map<string, number>): string {
@@ -189,7 +202,9 @@ export function getExpectedPrListSummary(
   const nonSecurityTypes = new Set<string>();
   for (const branch of branches) {
     if (!branch.isVulnerabilityAlert) {
-      nonSecurityTypes.add(getBranchPrimaryType(branch));
+      for (const type of getBranchUpgradeTypes(branch)) {
+        nonSecurityTypes.add(type);
+      }
     }
   }
   const typeColumns: string[] = UPDATE_TYPE_DISPLAY_ORDER.filter((t) =>
@@ -215,17 +230,23 @@ export function getExpectedPrListSummary(
     prDesc += `| Branch | Manager | security${typeSuffix(typeColumns)} |\n`;
     prDesc += `| --- | --- | ---${typeColumns.map(() => ' | ---').join('')} |\n`;
 
-    // stats: baseBranch -> manager -> type -> count
+    // stats: baseBranch -> manager -> type -> count (deduplicated by branchName+manager+type)
     const stats = new Map<string, Map<string, Map<string, number>>>();
+    const seenTableKeys = new Set<string>();
     for (const branch of branches) {
       const base = branch.baseBranch ?? '';
       const manager = branch.manager;
-      const type = getBranchPrimaryType(branch);
       if (!stats.has(base)) stats.set(base, new Map());
       const baseStats = stats.get(base)!;
       if (!baseStats.has(manager)) baseStats.set(manager, new Map());
       const managerStats = baseStats.get(manager)!;
-      managerStats.set(type, (managerStats.get(type) ?? 0) + 1);
+      for (const type of getBranchUpgradeTypes(branch)) {
+        const key = `${branch.branchName}:${manager}:${type}`;
+        if (!seenTableKeys.has(key)) {
+          seenTableKeys.add(key);
+          managerStats.set(type, (managerStats.get(type) ?? 0) + 1);
+        }
+      }
     }
 
     // Sort: default branch first, then named branches alphabetically
@@ -249,14 +270,20 @@ export function getExpectedPrListSummary(
     prDesc += `| Manager | security${typeSuffix(typeColumns)} |\n`;
     prDesc += `| ------- | --------${typeSeparatorSuffix(typeColumns)} |\n`;
 
-    // stats: manager -> type -> count
+    // stats: manager -> type -> count (deduplicated by branchName+manager+type)
     const stats = new Map<string, Map<string, number>>();
+    const seenTableKeys = new Set<string>();
     for (const branch of branches) {
       const manager = branch.manager;
-      const type = getBranchPrimaryType(branch);
       if (!stats.has(manager)) stats.set(manager, new Map());
       const managerStats = stats.get(manager)!;
-      managerStats.set(type, (managerStats.get(type) ?? 0) + 1);
+      for (const type of getBranchUpgradeTypes(branch)) {
+        const key = `${branch.branchName}:${manager}:${type}`;
+        if (!seenTableKeys.has(key)) {
+          seenTableKeys.add(key);
+          managerStats.set(type, (managerStats.get(type) ?? 0) + 1);
+        }
+      }
     }
 
     for (const [manager, typeCounts] of stats) {

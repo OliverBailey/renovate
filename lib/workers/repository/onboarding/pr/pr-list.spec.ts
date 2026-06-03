@@ -668,7 +668,7 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
           | Manager | security |
           | ------- | -------- |
           | another-manager | 1 |
-          | some-manager | 3 |
+          | some-manager | 2 |
 
           **Security updates**:
 
