@@ -1,4 +1,7 @@
-import { UpdateTypesOptions, type RenovateConfig } from '../../../../config/types.ts';
+import {
+  type RenovateConfig,
+  UpdateTypesOptions,
+} from '../../../../config/types.ts';
 import { logger } from '../../../../logger/index.ts';
 import { emojify } from '../../../../util/emoji.ts';
 import { regEx } from '../../../../util/regex.ts';
@@ -88,7 +91,9 @@ export function getExpectedPrList(
 const UPDATE_TYPE_DISPLAY_ORDER = [...UpdateTypesOptions];
 
 function getBranchUpgradeTypes(branch: BranchConfig): Set<string> {
-  if (branch.isVulnerabilityAlert) return new Set(['security']);
+  if (branch.isVulnerabilityAlert) {
+    return new Set(['security']);
+  }
   const types = new Set<string>();
   for (const upgrade of branch.upgrades) {
     if (upgrade.updateType) {
@@ -101,9 +106,13 @@ function getBranchUpgradeTypes(branch: BranchConfig): Set<string> {
 }
 
 function getPrimaryType(types: Set<string>): string {
-  if (types.has('security')) return 'security';
+  if (types.has('security')) {
+    return 'security';
+  }
   for (const type of UPDATE_TYPE_DISPLAY_ORDER) {
-    if (types.has(type)) return type;
+    if (types.has(type)) {
+      return type;
+    }
   }
   return [...types][0] ?? 'other';
 }
@@ -123,8 +132,12 @@ function formatTypeSummary(typeCount: Map<string, number>): string {
 // Sort: default branch (empty string) first, then named branches alphabetically.
 function sortBaseBranches(bases: Iterable<string>): string[] {
   return [...bases].sort((a, b) => {
-    if (a === '') return -1;
-    if (b === '') return 1;
+    if (a === '') {
+      return -1;
+    }
+    if (b === '') {
+      return 1;
+    }
     return a.localeCompare(b);
   });
 }
@@ -186,24 +199,34 @@ function collectBranchStats(branches: BranchConfig[]): BranchStats {
     const { manager, branchName } = branch;
     const branchTypes = getBranchUpgradeTypes(branch);
 
-    for (const type of branchTypes) presentTypes.add(type);
+    for (const type of branchTypes) {
+      presentTypes.add(type);
+    }
 
     if (!seenPrs.has(branchName)) {
       seenPrs.add(branchName);
       prCountByBase.set(base, (prCountByBase.get(base) ?? 0) + 1);
-      if (!typeCountByBase.has(base)) typeCountByBase.set(base, new Map());
+      if (!typeCountByBase.has(base)) {
+        typeCountByBase.set(base, new Map());
+      }
       const typeMap = typeCountByBase.get(base)!;
       const primaryType = getPrimaryType(branchTypes);
       typeMap.set(primaryType, (typeMap.get(primaryType) ?? 0) + 1);
     }
 
-    if (!tableStats.has(base)) tableStats.set(base, new Map());
+    if (!tableStats.has(base)) {
+      tableStats.set(base, new Map());
+    }
     const baseStats = tableStats.get(base)!;
-    if (!baseStats.has(manager)) baseStats.set(manager, new Map());
+    if (!baseStats.has(manager)) {
+      baseStats.set(manager, new Map());
+    }
     const managerStats = baseStats.get(manager)!;
     for (const type of branchTypes) {
       const key = `${branchName}:${manager}:${type}`;
-      if (seenTableKeys.has(key)) continue;
+      if (seenTableKeys.has(key)) {
+        continue;
+      }
       seenTableKeys.add(key);
       managerStats.set(type, (managerStats.get(type) ?? 0) + 1);
     }
@@ -228,13 +251,19 @@ function collectBranchStats(branches: BranchConfig[]): BranchStats {
 
 function getTypeColumns(presentTypes: Set<string>): string[] {
   const cols: string[] = [];
-  if (presentTypes.has('security')) cols.push('security');
+  if (presentTypes.has('security')) {
+    cols.push('security');
+  }
   for (const t of UPDATE_TYPE_DISPLAY_ORDER) {
-    if (presentTypes.has(t)) cols.push(t);
+    if (presentTypes.has(t)) {
+      cols.push(t);
+    }
   }
   // Append any types not in the standard display order.
   for (const t of presentTypes) {
-    if (!cols.includes(t)) cols.push(t);
+    if (!cols.includes(t)) {
+      cols.push(t);
+    }
   }
   return cols;
 }
@@ -262,9 +291,8 @@ function getRateLimitMessage(
     commitHourlyLimit < 5 &&
     commitHourlyLimit < branches.length
   ) {
-    // TODO: additional newline
     return emojify(
-      `\n:children_crossing: Branch creation and rebasing will be limited to maximum ${commitHourlyLimit} per hour, so it doesn't swamp any CI resources or overwhelm the project. See docs for \`commitHourlyLimit\` for details.\n`,
+      `:children_crossing: Branch creation and rebasing will be limited to maximum ${commitHourlyLimit} per hour, so it doesn't swamp any CI resources or overwhelm the project. See docs for \`commitHourlyLimit\` for details.\n`,
     );
   }
   if (
@@ -272,7 +300,6 @@ function getRateLimitMessage(
     prHourlyLimit < 5 &&
     prHourlyLimit < branches.length
   ) {
-    // TODO: additional newline
     return emojify(
       `:children_crossing: PR creation will be limited to maximum ${prHourlyLimit} per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.\n`,
     );
@@ -343,7 +370,7 @@ export function getExpectedPrListSummary(
     }
   }
 
-  prDesc += getRateLimitMessage(config, branches);
+  prDesc += `\n\n${getRateLimitMessage(config, branches)}`;
 
   return prDesc;
 }

@@ -335,6 +335,8 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
         | --- | ----- | ----- | ----------- |
         | some-manager | 1 | 1 | 0 |
         | dockerfile | 0 | 0 | 1 |
+
+
         🚸 PR creation will be limited to maximum 2 per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.
         "
       `);
@@ -370,6 +372,8 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
         | Manager | lockFileMaintenance |
         | --- | ------------------- |
         | some-manager | 1 |
+
+
         "
       `);
     });
@@ -432,6 +436,8 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
         | --- | --- | --- | --- |
         | $default | some-manager | 0 | 1 |
         | base | some-manager | 1 | 0 |
+
+
         "
       `);
     });
@@ -493,6 +499,8 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
         | --- | ----- | -------------- |
         | some-manager | 1 | 0 |
         | another-manager | 0 | 1 |
+
+
         🚸 PR creation will be limited to maximum 1 per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.
         "
       `);
@@ -581,6 +589,8 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
         | --- | ----- | ----- | ----- | ----- |
         | some-manager | 0 | 1 | 1 | 1 |
         | another-manager | 1 | 0 | 0 | 0 |
+
+
         🚸 PR creation will be limited to maximum 1 per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.
         "
       `);
@@ -679,6 +689,8 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
           - \`a\`, (some-manager, patch):
             - \`packages/examples/blah.json\`
             - \`packages/examples/another.json\`
+
+
           🚸 PR creation will be limited to maximum 2 per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.
           "
         `);
@@ -738,6 +750,8 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
           - \`c\`, (patch):
             - \`requirements.txt\` (pip_requirements)
             - \`pyproject.toml\` (pep621)
+
+
           "
         `);
       });
