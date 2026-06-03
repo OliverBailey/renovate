@@ -337,8 +337,8 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
         | dockerfile | 0 | 0 | 1 |
         🚸 PR creation will be limited to maximum 2 per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.
         "
-      `)
-    })
+      `);
+    });
 
     // TODO not security
 
@@ -389,14 +389,16 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
               depName: 'a',
               depType: 'devDependencies',
               newValue: '1.1.0',
+              branchName: 'renovate/pin-dependencies',
             },
             {
               manager: 'some-manager',
               updateType: 'pin',
               depName: 'b',
               newValue: '1.5.3',
+              branchName: 'renovate/pin-dependencies',
             },
-          ] as never,
+          ],
         },
         {
           prTitle: 'Update a to v2',
@@ -431,10 +433,10 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
         | $default | some-manager | 0 | 1 |
         | base | some-manager | 1 | 0 |
         "
-      `)
-    })
+      `);
+    });
 
-    it('handles multiple', () => { // TODO name
+    it('handles updates with a different number of dependencies being updated', () => {
       const branches: BranchConfig[] = [
         {
           prTitle: 'Pin dependencies',
@@ -496,7 +498,8 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
       `);
     });
 
-    it('todo', () => { // TODO name
+    it('todo', () => {
+      // TODO name
       const branches: BranchConfig[] = [
         {
           prTitle: 'Pin dependencies',
@@ -582,7 +585,6 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
         "
       `);
     });
-
 
     describe('has special description when security update(s) exist', () => {
       it('and are split over multiple lines if there are multiple package files', () => {
@@ -738,8 +740,8 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
             - \`pyproject.toml\` (pep621)
           "
         `);
-      })
-    })
+      });
+    });
 
     it('shows commitHourlyLimit message when limit is low', () => {
       const branches: BranchConfig[] = [
@@ -840,5 +842,4 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
       expect(res).not.toContain('prHourlyLimit');
     });
   });
-
 });
