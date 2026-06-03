@@ -84,3 +84,13 @@ export function getExpectedPrList(
   }
   return prDesc;
 }
+
+export function getExpectedPrListSummary(
+  config: RenovateConfig,
+  branches: BranchConfig[],
+): string {
+  logger.debug('getExpectedPrList()');
+  logger.trace({ config });
+
+  return ''
+}
