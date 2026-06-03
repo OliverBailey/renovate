@@ -267,7 +267,7 @@ export function getExpectedPrListSummary(
     }
   } else {
     prDesc += `| Manager${typeSuffix(typeColumns)} |\n`;
-    prDesc += `| -------${typeSeparatorSuffix(typeColumns)} |\n`;
+    prDesc += `| ---${typeSeparatorSuffix(typeColumns)} |\n`;
 
     // stats: manager -> type -> count (deduplicated by branchName+manager+type)
     const stats = new Map<string, Map<string, number>>();
