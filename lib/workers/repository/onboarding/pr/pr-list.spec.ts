@@ -344,6 +344,17 @@ describe('workers/repository/onboarding/pr/pr-list', () => {
 
       const res = getExpectedPrListSummary(config, branches);
 
+      expect(res).toMatchInlineSnapshot(`
+        "
+        ### What to Expect
+
+        With your current configuration, Renovate will create 1 Pull Request to the default branch (1 major) and 1 Pull Request to the \`base\` branch (1 pin):
+
+        | Branch | Manager       | security | major | minor | patch | pin |
+        | --- | ------------- | -------- | ----- | ----- | ----- | ------------------- |
+        | $default | some-mananger | 0        | 1     | 0     | 0     | 0                   |
+        | base | some-mananger | 0        | 0     | 0     | 0     | 1                   |
+        `)
     })
 
     it('handles multiple', () => { // TODO name
