@@ -239,6 +239,17 @@ function getTypeColumns(presentTypes: Set<string>): string[] {
   return cols;
 }
 
+function typeSuffix(cols: string[]): string {
+  return cols.length ? ` | ${cols.join(' | ')}` : '';
+}
+
+function renderRowCounts(
+  typeColumns: string[],
+  typeCounts: Map<string, number>,
+): string {
+  return typeSuffix(typeColumns.map((t) => String(typeCounts.get(t) ?? 0)));
+}
+
 function getRateLimitMessage(
   config: RenovateConfig,
   branches: BranchConfig[],
@@ -304,18 +315,13 @@ export function getExpectedPrListSummary(
 
   // Table
   const typeColumns = getTypeColumns(stats.presentTypes);
-  const typeSuffix = (cols: string[]): string =>
-    cols.length ? ` | ${cols.join(' | ')}` : '';
-  const renderCounts = (typeCounts: Map<string, number>): string =>
-    typeSuffix(typeColumns.map((t) => String(typeCounts.get(t) ?? 0)));
-
   if (hasMultipleBaseBranches) {
     prDesc += `| Branch | Manager${typeSuffix(typeColumns)} |\n`;
     prDesc += `| --- | ---${typeColumns.map(() => ' | ---').join('')} |\n`;
     for (const base of sortedBases) {
       const label = base || '$default';
       for (const [manager, typeCounts] of stats.tableStats.get(base)!) {
-        prDesc += `| ${label} | ${manager}${renderCounts(typeCounts)} |\n`;
+        prDesc += `| ${label} | ${manager}${renderRowCounts(typeColumns, typeCounts)} |\n`;
       }
     }
   } else {
@@ -325,7 +331,7 @@ export function getExpectedPrListSummary(
     prDesc += `| Manager${typeSuffix(typeColumns)} |\n`;
     prDesc += `| ---${typeColumns.length ? ` | ${separatorCells}` : ''} |\n`;
     for (const [manager, typeCounts] of stats.tableStats.get(sortedBases[0])!) {
-      prDesc += `| ${manager}${renderCounts(typeCounts)} |\n`;
+      prDesc += `| ${manager}${renderRowCounts(typeColumns, typeCounts)} |\n`;
     }
   }
 
