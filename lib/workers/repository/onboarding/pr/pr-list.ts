@@ -100,8 +100,7 @@ function getBranchUpgradeTypes(branch: BranchConfig): Set<string> {
   return types;
 }
 
-function getBranchPrimaryType(branch: BranchConfig): string {
-  const types = getBranchUpgradeTypes(branch);
+function getPrimaryType(types: Set<string>): string {
   if (types.has('security')) return 'security';
   for (const type of UPDATE_TYPE_DISPLAY_ORDER) {
     if (types.has(type)) return type;
@@ -111,16 +110,165 @@ function getBranchPrimaryType(branch: BranchConfig): string {
 
 function formatTypeSummary(typeCount: Map<string, number>): string {
   const parts: string[] = [];
-  if (typeCount.get('security')) {
-    parts.push(`${typeCount.get('security')} security`);
-  }
-  for (const type of UPDATE_TYPE_DISPLAY_ORDER) {
+  // Note: 'security' is handled here separately because it's not in UPDATE_TYPE_DISPLAY_ORDER.
+  for (const type of ['security', ...UPDATE_TYPE_DISPLAY_ORDER]) {
     const count = typeCount.get(type);
     if (count) {
       parts.push(`${count} ${type}`);
     }
   }
   return parts.join(', ');
+}
+
+// Sort: default branch (empty string) first, then named branches alphabetically.
+function sortBaseBranches(bases: Iterable<string>): string[] {
+  return [...bases].sort((a, b) => {
+    if (a === '') return -1;
+    if (b === '') return 1;
+    return a.localeCompare(b);
+  });
+}
+
+function increment<K>(map: Map<K, number>, key: K): void {
+  map.set(key, (map.get(key) ?? 0) + 1);
+}
+
+function describeSecurityGroup(groupBranches: BranchConfig[]): string {
+  const firstUpgrade = groupBranches[0].upgrades[0];
+  const depName = firstUpgrade?.depName ?? groupBranches[0].prTitle ?? '';
+  const updateType = firstUpgrade?.updateType ?? 'unknown';
+  const packageFiles = groupBranches
+    .map((b) => ({ file: b.packageFile ?? '', manager: b.manager }))
+    .filter((f) => f.file);
+  const uniqueManagers = new Set(packageFiles.map((f) => f.manager));
+
+  if (packageFiles.length <= 1) {
+    const file = packageFiles[0]?.file ?? '';
+    const manager = uniqueManagers.size === 1 ? [...uniqueManagers][0] : '';
+    return `- \`${depName}\`, (${manager}, ${updateType}): \`${file}\`\n`;
+  }
+  if (uniqueManagers.size === 1) {
+    const manager = [...uniqueManagers][0];
+    let out = `- \`${depName}\`, (${manager}, ${updateType}):\n`;
+    for (const { file } of packageFiles) {
+      out += `  - \`${file}\`\n`;
+    }
+    return out;
+  }
+  let out = `- \`${depName}\`, (${updateType}):\n`;
+  for (const { file, manager } of packageFiles) {
+    out += `  - \`${file}\` (${manager})\n`;
+  }
+  return out;
+}
+
+interface BranchStats {
+  // PR count per base branch, deduplicated by branchName.
+  prCountByBase: Map<string, number>;
+  // Primary-type count per base branch, deduplicated by branchName.
+  typeCountByBase: Map<string, Map<string, number>>;
+  // base -> manager -> type -> count, deduplicated by branchName+manager+type.
+  tableStats: Map<string, Map<string, Map<string, number>>>;
+  // All upgrade types seen anywhere — drives the table columns.
+  presentTypes: Set<string>;
+  // Security branches grouped by branchName.
+  securityGroups: Map<string, BranchConfig[]>;
+  prCount: number;
+}
+
+function collectBranchStats(branches: BranchConfig[]): BranchStats {
+  const prCountByBase = new Map<string, number>();
+  const typeCountByBase = new Map<string, Map<string, number>>();
+  const tableStats = new Map<string, Map<string, Map<string, number>>>();
+  const presentTypes = new Set<string>();
+  const securityGroups = new Map<string, BranchConfig[]>();
+  const seenPrs = new Set<string>();
+  const seenTableKeys = new Set<string>();
+
+  for (const branch of branches) {
+    const base = branch.baseBranch ?? '';
+    const { manager, branchName } = branch;
+    const branchTypes = getBranchUpgradeTypes(branch);
+
+    for (const type of branchTypes) presentTypes.add(type);
+
+    if (!seenPrs.has(branchName)) {
+      seenPrs.add(branchName);
+      increment(prCountByBase, base);
+      if (!typeCountByBase.has(base)) typeCountByBase.set(base, new Map());
+      increment(typeCountByBase.get(base)!, getPrimaryType(branchTypes));
+    }
+
+    if (!tableStats.has(base)) tableStats.set(base, new Map());
+    const baseStats = tableStats.get(base)!;
+    if (!baseStats.has(manager)) baseStats.set(manager, new Map());
+    const managerStats = baseStats.get(manager)!;
+    for (const type of branchTypes) {
+      const key = `${branchName}:${manager}:${type}`;
+      if (seenTableKeys.has(key)) continue;
+      seenTableKeys.add(key);
+      increment(managerStats, type);
+    }
+
+    if (branch.isVulnerabilityAlert) {
+      if (!securityGroups.has(branchName)) {
+        securityGroups.set(branchName, []);
+      }
+      securityGroups.get(branchName)!.push(branch);
+    }
+  }
+
+  return {
+    prCountByBase,
+    typeCountByBase,
+    tableStats,
+    presentTypes,
+    securityGroups,
+    prCount: seenPrs.size,
+  };
+}
+
+function getTypeColumns(presentTypes: Set<string>): string[] {
+  const cols: string[] = [];
+  if (presentTypes.has('security')) cols.push('security');
+  for (const t of UPDATE_TYPE_DISPLAY_ORDER) {
+    if (presentTypes.has(t)) cols.push(t);
+  }
+  // Append any types not in the standard display order.
+  for (const t of presentTypes) {
+    if (!cols.includes(t)) cols.push(t);
+  }
+  return cols;
+}
+
+function getRateLimitMessage(
+  config: RenovateConfig,
+  branches: BranchConfig[],
+): string {
+  // TODO #22198
+  const prHourlyLimit = config.prHourlyLimit!;
+  const commitHourlyLimit = config.commitHourlyLimit!;
+  if (
+    commitHourlyLimit > 0 &&
+    commitHourlyLimit < 5 &&
+    commitHourlyLimit < branches.length
+  ) {
+    // TODO: additional newline
+    return emojify(
+      `\n:children_crossing: Branch creation and rebasing will be limited to maximum ${commitHourlyLimit} per hour, so it doesn't swamp any CI resources or overwhelm the project. See docs for \`commitHourlyLimit\` for details.\n`,
+    );
+  }
+  if (
+    prHourlyLimit > 0 &&
+    prHourlyLimit < 5 &&
+    prHourlyLimit < branches.length
+  ) {
+    // TODO: additional newline
+    return emojify(
+      `:children_crossing: PR creation will be limited to maximum ${prHourlyLimit} per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.\n`,
+    );
+  }
+  return '';
 }
 
 export function getExpectedPrListSummary(
@@ -136,227 +284,62 @@ export function getExpectedPrListSummary(
     return `${prDesc}It looks like your repository dependencies are already up-to-date and no Pull Requests will be necessary right away.\n`;
   }
 
-  // Count unique PRs by branchName
-  const uniqueBranchNames = new Set(branches.map((b) => b.branchName));
-  const prCount = uniqueBranchNames.size;
+  const stats = collectBranchStats(branches);
+  const sortedBases = sortBaseBranches(stats.prCountByBase.keys());
+  const hasMultipleBaseBranches = sortedBases.length > 1;
 
-  // Count PRs by type (using unique branchNames to avoid double-counting)
-  const seenBranchNames = new Set<string>();
-  const prTypeCount = new Map<string, number>();
-  for (const branch of branches) {
-    if (seenBranchNames.has(branch.branchName)) continue;
-    seenBranchNames.add(branch.branchName);
-    const type = getBranchPrimaryType(branch);
-    prTypeCount.set(type, (prTypeCount.get(type) ?? 0) + 1);
-  }
-
-  // Determine if multiple base branches exist
-  const baseBranchSet = new Set(branches.map((b) => b.baseBranch ?? ''));
-  const hasMultipleBaseBranches = baseBranchSet.size > 1;
-
+  // Summary line
   if (hasMultipleBaseBranches) {
-    // Group unique PRs by baseBranch
-    const baseBranchPrCount = new Map<string, number>();
-    const baseBranchTypeCount = new Map<string, Map<string, number>>();
-    const seenForBase = new Set<string>();
-
-    for (const branch of branches) {
-      if (seenForBase.has(branch.branchName)) continue;
-      seenForBase.add(branch.branchName);
-      const base = branch.baseBranch ?? '';
-      const type = getBranchPrimaryType(branch);
-      baseBranchPrCount.set(base, (baseBranchPrCount.get(base) ?? 0) + 1);
-      if (!baseBranchTypeCount.has(base)) {
-        baseBranchTypeCount.set(base, new Map());
-      }
-      const typeMap = baseBranchTypeCount.get(base)!;
-      typeMap.set(type, (typeMap.get(type) ?? 0) + 1);
-    }
-
-    // Sort: default branch (empty string) first, then named branches alphabetically
-    const sortedBases = [...baseBranchPrCount.keys()].sort((a, b) => {
-      if (a === '') return -1;
-      if (b === '') return 1;
-      return a.localeCompare(b);
+    const parts = sortedBases.map((base) => {
+      const count = stats.prCountByBase.get(base)!;
+      const typeSummary = formatTypeSummary(stats.typeCountByBase.get(base)!);
+      const label = base ? `the \`${base}\` branch` : 'the default branch';
+      return `${count} Pull Request${count > 1 ? 's' : ''} to ${label} (${typeSummary})`;
     });
-
-    const parts: string[] = [];
-    for (const base of sortedBases) {
-      const count = baseBranchPrCount.get(base)!;
-      const typeMap = baseBranchTypeCount.get(base)!;
-      const typeSummary = formatTypeSummary(typeMap);
-      const branchLabel = base
-        ? `the \`${base}\` branch`
-        : 'the default branch';
-      parts.push(
-        `${count} Pull Request${count > 1 ? 's' : ''} to ${branchLabel} (${typeSummary})`,
-      );
-    }
     prDesc += `With your current configuration, Renovate will create ${parts.join(' and ')}:\n\n`;
   } else {
-    const typeSummary = formatTypeSummary(prTypeCount);
-    prDesc += `With your current configuration, Renovate will create ${prCount} Pull Request${prCount > 1 ? 's' : ''} (${typeSummary}):\n\n`;
+    const typeSummary = formatTypeSummary(
+      stats.typeCountByBase.get(sortedBases[0])!,
+    );
+    prDesc += `With your current configuration, Renovate will create ${stats.prCount} Pull Request${stats.prCount > 1 ? 's' : ''} (${typeSummary}):\n\n`;
   }
 
-  // Determine which update types appear in the data (drives table columns)
-  const hasSecurityUpdates = branches.some((b) => b.isVulnerabilityAlert);
-  const presentTypes = new Set<string>();
-  for (const branch of branches) {
-    for (const type of getBranchUpgradeTypes(branch)) {
-      presentTypes.add(type);
-    }
-  }
-  const typeColumns: string[] = [
-    ...(hasSecurityUpdates ? ['security'] : []),
-    ...UPDATE_TYPE_DISPLAY_ORDER.filter((t) => presentTypes.has(t)),
-  ];
-  // Append any types not in the standard display order
-  for (const t of presentTypes) {
-    if (!typeColumns.includes(t)) {
-      typeColumns.push(t);
-    }
-  }
-
-  // Build table grouped by manager (and optionally base branch)
-
+  // Table
+  const typeColumns = getTypeColumns(stats.presentTypes);
   const typeSuffix = (cols: string[]): string =>
     cols.length ? ` | ${cols.join(' | ')}` : '';
-  const typeSeparatorSuffix = (cols: string[]): string =>
-    cols.length
-      ? ` | ${cols.map((c) => '-'.repeat(Math.max(c.length, 5))).join(' | ')}`
-      : '';
+  const renderCounts = (typeCounts: Map<string, number>): string =>
+    typeSuffix(typeColumns.map((t) => String(typeCounts.get(t) ?? 0)));
 
   if (hasMultipleBaseBranches) {
     prDesc += `| Branch | Manager${typeSuffix(typeColumns)} |\n`;
     prDesc += `| --- | ---${typeColumns.map(() => ' | ---').join('')} |\n`;
-
-    // stats: baseBranch -> manager -> type -> count (deduplicated by branchName+manager+type)
-    const stats = new Map<string, Map<string, Map<string, number>>>();
-    const seenTableKeys = new Set<string>();
-    for (const branch of branches) {
-      const base = branch.baseBranch ?? '';
-      const manager = branch.manager;
-      if (!stats.has(base)) stats.set(base, new Map());
-      const baseStats = stats.get(base)!;
-      if (!baseStats.has(manager)) baseStats.set(manager, new Map());
-      const managerStats = baseStats.get(manager)!;
-      for (const type of getBranchUpgradeTypes(branch)) {
-        const key = `${branch.branchName}:${manager}:${type}`;
-        if (!seenTableKeys.has(key)) {
-          seenTableKeys.add(key);
-          managerStats.set(type, (managerStats.get(type) ?? 0) + 1);
-        }
-      }
-    }
-
-    // Sort: default branch first, then named branches alphabetically
-    const sortedBases = [...stats.keys()].sort((a, b) => {
-      if (a === '') return -1;
-      if (b === '') return 1;
-      return a.localeCompare(b);
-    });
-
     for (const base of sortedBases) {
-      const branchLabel = base || '$default';
-      for (const [manager, typeCounts] of stats.get(base)!) {
-        const rowSuffix = typeSuffix(
-          typeColumns.map((t) => String(typeCounts.get(t) ?? 0)),
-        );
-        prDesc += `| ${branchLabel} | ${manager}${rowSuffix} |\n`;
+      const label = base || '$default';
+      for (const [manager, typeCounts] of stats.tableStats.get(base)!) {
+        prDesc += `| ${label} | ${manager}${renderCounts(typeCounts)} |\n`;
       }
     }
   } else {
+    const separatorCells = typeColumns
+      .map((c) => '-'.repeat(Math.max(c.length, 5)))
+      .join(' | ');
     prDesc += `| Manager${typeSuffix(typeColumns)} |\n`;
-    prDesc += `| ---${typeSeparatorSuffix(typeColumns)} |\n`;
-
-    // stats: manager -> type -> count (deduplicated by branchName+manager+type)
-    const stats = new Map<string, Map<string, number>>();
-    const seenTableKeys = new Set<string>();
-    for (const branch of branches) {
-      const manager = branch.manager;
-      if (!stats.has(manager)) stats.set(manager, new Map());
-      const managerStats = stats.get(manager)!;
-      for (const type of getBranchUpgradeTypes(branch)) {
-        const key = `${branch.branchName}:${manager}:${type}`;
-        if (!seenTableKeys.has(key)) {
-          seenTableKeys.add(key);
-          managerStats.set(type, (managerStats.get(type) ?? 0) + 1);
-        }
-      }
-    }
-
-    for (const [manager, typeCounts] of stats) {
-      const rowSuffix = typeSuffix(
-        typeColumns.map((t) => String(typeCounts.get(t) ?? 0)),
-      );
-      prDesc += `| ${manager}${rowSuffix} |\n`;
+    prDesc += `| ---${typeColumns.length ? ` | ${separatorCells}` : ''} |\n`;
+    for (const [manager, typeCounts] of stats.tableStats.get(sortedBases[0])!) {
+      prDesc += `| ${manager}${renderCounts(typeCounts)} |\n`;
     }
   }
 
   // Security updates section
-  const securityBranches = branches.filter((b) => b.isVulnerabilityAlert);
-  if (securityBranches.length) {
+  if (stats.securityGroups.size) {
     prDesc += `\n**Security updates**:\n\n`;
-    // Group by branchName
-    const branchGroups = new Map<string, BranchConfig[]>();
-    for (const branch of securityBranches) {
-      if (!branchGroups.has(branch.branchName)) {
-        branchGroups.set(branch.branchName, []);
-      }
-      branchGroups.get(branch.branchName)!.push(branch);
-    }
-
-    for (const [, groupBranches] of branchGroups) {
-      const firstUpgrade = groupBranches[0].upgrades[0];
-      const depName = firstUpgrade?.depName ?? groupBranches[0].prTitle ?? '';
-      const updateType = firstUpgrade?.updateType ?? 'unknown';
-      const packageFiles = groupBranches
-        .map((b) => ({ file: b.packageFile ?? '', manager: b.manager }))
-        .filter((f) => f.file);
-      const uniqueManagers = new Set(packageFiles.map((f) => f.manager));
-
-      if (packageFiles.length <= 1) {
-        const file = packageFiles[0]?.file ?? '';
-        const manager =
-          uniqueManagers.size === 1 ? [...uniqueManagers][0] : '';
-        prDesc += `- \`${depName}\`, (${manager}, ${updateType}): \`${file}\`\n`;
-      } else if (uniqueManagers.size === 1) {
-        const manager = [...uniqueManagers][0];
-        prDesc += `- \`${depName}\`, (${manager}, ${updateType}):\n`;
-        for (const { file } of packageFiles) {
-          prDesc += `  - \`${file}\`\n`;
-        }
-      } else {
-        prDesc += `- \`${depName}\`, (${updateType}):\n`;
-        for (const { file, manager } of packageFiles) {
-          prDesc += `  - \`${file}\` (${manager})\n`;
-        }
-      }
+    for (const groupBranches of stats.securityGroups.values()) {
+      prDesc += describeSecurityGroup(groupBranches);
     }
   }
 
-  // Rate limiting messages
-  const prHourlyLimit = config.prHourlyLimit!;
-  const commitHourlyLimit = config.commitHourlyLimit!;
-  if (
-    commitHourlyLimit > 0 &&
-    commitHourlyLimit < 5 &&
-    commitHourlyLimit < branches.length
-  ) {
-    // TODO: additional newline
-    prDesc += emojify(
-      `\n:children_crossing: Branch creation and rebasing will be limited to maximum ${commitHourlyLimit} per hour, so it doesn't swamp any CI resources or overwhelm the project. See docs for \`commitHourlyLimit\` for details.\n`,
-    );
-  } else if (
-    prHourlyLimit > 0 &&
-    prHourlyLimit < 5 &&
-    prHourlyLimit < branches.length
-  ) {
-    // TODO: additional newline
-    prDesc += emojify(
-      `:children_crossing: PR creation will be limited to maximum ${prHourlyLimit} per hour, so it doesn't swamp any CI resources or overwhelm the project. See [docs for \`prHourlyLimit\`](https://docs.renovatebot.com/configuration-options/#prhourlylimit) for details.\n`,
-    );
-  }
+  prDesc += getRateLimitMessage(config, branches);
 
   return prDesc;
 }
