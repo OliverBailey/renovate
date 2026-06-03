@@ -129,10 +129,6 @@ function sortBaseBranches(bases: Iterable<string>): string[] {
   });
 }
 
-function increment<K>(map: Map<K, number>, key: K): void {
-  map.set(key, (map.get(key) ?? 0) + 1);
-}
-
 function describeSecurityGroup(groupBranches: BranchConfig[]): string {
   const firstUpgrade = groupBranches[0].upgrades[0];
   const depName = firstUpgrade?.depName ?? groupBranches[0].prTitle ?? '';
@@ -147,19 +143,19 @@ function describeSecurityGroup(groupBranches: BranchConfig[]): string {
     const manager = uniqueManagers.size === 1 ? [...uniqueManagers][0] : '';
     return `- \`${depName}\`, (${manager}, ${updateType}): \`${file}\`\n`;
   }
+
   if (uniqueManagers.size === 1) {
     const manager = [...uniqueManagers][0];
-    let out = `- \`${depName}\`, (${manager}, ${updateType}):\n`;
-    for (const { file } of packageFiles) {
-      out += `  - \`${file}\`\n`;
-    }
-    return out;
+    const fileLines = packageFiles
+      .map(({ file }) => `  - \`${file}\`\n`)
+      .join('');
+    return `- \`${depName}\`, (${manager}, ${updateType}):\n${fileLines}`;
   }
-  let out = `- \`${depName}\`, (${updateType}):\n`;
-  for (const { file, manager } of packageFiles) {
-    out += `  - \`${file}\` (${manager})\n`;
-  }
-  return out;
+
+  const fileLines = packageFiles
+    .map(({ file, manager }) => `  - \`${file}\` (${manager})\n`)
+    .join('');
+  return `- \`${depName}\`, (${updateType}):\n${fileLines}`;
 }
 
 interface BranchStats {
@@ -194,9 +190,11 @@ function collectBranchStats(branches: BranchConfig[]): BranchStats {
 
     if (!seenPrs.has(branchName)) {
       seenPrs.add(branchName);
-      increment(prCountByBase, base);
+      prCountByBase.set(base, (prCountByBase.get(base) ?? 0) + 1);
       if (!typeCountByBase.has(base)) typeCountByBase.set(base, new Map());
-      increment(typeCountByBase.get(base)!, getPrimaryType(branchTypes));
+      const typeMap = typeCountByBase.get(base)!;
+      const primaryType = getPrimaryType(branchTypes);
+      typeMap.set(primaryType, (typeMap.get(primaryType) ?? 0) + 1);
     }
 
     if (!tableStats.has(base)) tableStats.set(base, new Map());
@@ -207,7 +205,7 @@ function collectBranchStats(branches: BranchConfig[]): BranchStats {
       const key = `${branchName}:${manager}:${type}`;
       if (seenTableKeys.has(key)) continue;
       seenTableKeys.add(key);
-      increment(managerStats, type);
+      managerStats.set(type, (managerStats.get(type) ?? 0) + 1);
     }
 
     if (branch.isVulnerabilityAlert) {
